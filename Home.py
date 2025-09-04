@@ -199,7 +199,7 @@ if df_data is not None and df_list is not None:
                             # Balance the number of bars between both sides
                             max_items = max(len(positive_data), len(negative_data)) if len(positive_data) > 0 or len(negative_data) > 0 else 0
                             
-                            # Pad shorter side with empty entries
+                            # Pad shorter side with empty entries - ensuring consistent indexing
                             if len(positive_data) < max_items:
                                 padding_needed = max_items - len(positive_data)
                                 empty_rows = pd.DataFrame({
@@ -208,6 +208,7 @@ if df_data is not None and df_list is not None:
                                     'Impact': [''] * padding_needed
                                 })
                                 positive_data = pd.concat([positive_data, empty_rows], ignore_index=True)
+                                positive_data = positive_data.reset_index(drop=True)
                             
                             if len(negative_data) < max_items:
                                 padding_needed = max_items - len(negative_data)
@@ -217,67 +218,158 @@ if df_data is not None and df_list is not None:
                                     'Impact': [''] * padding_needed
                                 })
                                 negative_data = pd.concat([negative_data, empty_rows], ignore_index=True)
+                                negative_data = negative_data.reset_index(drop=True)
                             
                             # Create subplot with 2 columns: negative (left) and positive (right)
                             fig = make_subplots(
                                 rows=1, cols=2,
-                                horizontal_spacing=0.02,
+                                horizontal_spacing=0.35,
                                 column_widths=[0.49, 0.49]
                             )
                             
+                            # Calculate max range for consistent positioning
+                            max_negative_abs = abs(negative_data[selected_column].min()) if len(negative_data) > 0 and negative_data[selected_column].min() < 0 else 0.01
+                            max_positive = positive_data[selected_column].max() if len(positive_data) > 0 and positive_data[selected_column].max() > 0 else 0.01
+                            max_range = max(max_negative_abs, max_positive) * 1
+                            
                             # Add negative performance bars (left side)
                             if len(negative_data) > 0:
-                                # Create custom labels: impact + commodity + percentage (for decreasing)
-                                negative_labels = []
+                                # Create labels for different positions
+                                negative_impact_labels = []  # For outside position (left)
+                                negative_percent_labels = []  # For inside position (center)
+                                negative_commodities = []     # For annotations (right)
+                                
                                 for idx, row in negative_data.iterrows():
                                     if row['Commodities'] == '':
-                                        negative_labels.append('')
+                                        negative_impact_labels.append('')
+                                        negative_percent_labels.append('')
+                                        negative_commodities.append('')
                                     else:
-                                        impact_text = f"({row['Impact']}) " if pd.notna(row['Impact']) and row['Impact'] != '' else ''
-                                        negative_labels.append(f"{impact_text}{row['Commodities']}   {row[selected_column]:.1%}")
+                                        # Impact for outside (left of bar)
+                                        impact_text = f"({row['Impact']})" if pd.notna(row['Impact']) and row['Impact'] != '' else ''
+                                        negative_impact_labels.append(impact_text)
+                                        
+                                        # Percentage for inside (center of bar)
+                                        negative_percent_labels.append(f"{row[selected_column]:.1%}")
+                                        
+                                        # Commodity name for annotation (right of bar)
+                                        negative_commodities.append(row['Commodities'])
                                 
+                                # Main bar with percentage inside
                                 fig.add_trace(go.Bar(
                                     y=list(range(len(negative_data))),
                                     x=negative_data[selected_column],
                                     orientation='h',
                                     marker_color=['rgba(225, 29, 72, 0.6)' if x != 0 else 'rgba(0,0,0,0)' for x in negative_data[selected_column]],
-                                    text=negative_labels,
-                                    textposition='outside',
-                                    hovertemplate='<b>%{text}</b><br>Change: %{x:.1%}<extra></extra>',
+                                    text=negative_percent_labels,  # Only percentage inside
+                                    textposition='inside',
+                                    hovertemplate='<b>%{customdata}</b><br>Change: %{x:.1%}<extra></extra>',
+                                    customdata=[f"{imp} {comm} {pct}" for imp, comm, pct in zip(negative_impact_labels, negative_commodities, negative_percent_labels)],
                                     showlegend=False,
                                     name="Decreasing"
                                 ), row=1, col=1)
+                                
+                                # Add impact labels as outside text (using separate invisible bars)
+                                fig.add_trace(go.Bar(
+                                    y=list(range(len(negative_data))),
+                                    x=negative_data[selected_column],
+                                    orientation='h',
+                                    marker_color='rgba(0,0,0,0)',  # Invisible
+                                    text=negative_impact_labels,
+                                    textposition='outside',
+                                    textfont=dict(size=10),
+                                    hoverinfo='skip',
+                                    showlegend=False,
+                                    name="Impact_Left"
+                                ), row=1, col=1)
+                                
+                                # Add commodity names as annotations at center (x=0, left side)
+                                for i in range(len(negative_data)):
+                                    if negative_data.iloc[i]['Commodities'] != '':
+                                        fig.add_annotation(
+                                            x=0,  # Exactly at center
+                                            y=i,  # Row index matches bar position
+                                            text=negative_data.iloc[i]['Commodities'],
+                                            xanchor="left",  # Text extends to the right
+                                            yanchor="middle",
+                                            font=dict(size=10),
+                                            showarrow=False,
+                                            xref="x", yref="y"
+                                        )
                             
                             # Add positive performance bars (right side)
                             if len(positive_data) > 0:
-                                # Create custom labels: percentage + commodity + impact (for increasing)
-                                positive_labels = []
+                                # Create labels for different positions
+                                positive_commodity_labels = []  # For outside position (right)
+                                positive_percent_labels = []     # For inside position (center)
+                                positive_impacts = []            # For annotations (left)
+                                
                                 for idx, row in positive_data.iterrows():
                                     if row['Commodities'] == '':
-                                        positive_labels.append('')
+                                        positive_commodity_labels.append('')
+                                        positive_percent_labels.append('')
+                                        positive_impacts.append('')
                                     else:
-                                        impact_text = f" ({row['Impact']})" if pd.notna(row['Impact']) and row['Impact'] != '' else ''
-                                        positive_labels.append(f"{row[selected_column]:.1%}   {row['Commodities']}{impact_text}")
+                                        # Commodity for outside (right of bar)
+                                        positive_commodity_labels.append(row['Commodities'])
+                                        
+                                        # Percentage for inside (center of bar)
+                                        positive_percent_labels.append(f"{row[selected_column]:.1%}")
+                                        
+                                        # Impact for annotation (left of bar)
+                                        impact_text = f"({row['Impact']})" if pd.notna(row['Impact']) and row['Impact'] != '' else ''
+                                        positive_impacts.append(impact_text)
                                 
+                                # Main bar with percentage inside
                                 fig.add_trace(go.Bar(
                                     y=list(range(len(positive_data))),
                                     x=positive_data[selected_column],
                                     orientation='h',
                                     marker_color=['rgba(16, 185, 129, 0.6)' if x != 0 else 'rgba(0,0,0,0)' for x in positive_data[selected_column]],
-                                    text=positive_labels,
-                                    textposition='outside',
-                                    hovertemplate='<b>%{text}</b><br>Change: %{x:.1%}<extra></extra>',
+                                    text=positive_percent_labels,  # Only percentage inside
+                                    textposition='inside',
+                                    hovertemplate='<b>%{customdata}</b><br>Change: %{x:.1%}<extra></extra>',
+                                    customdata=[f"{imp} {comm} {pct}" for imp, comm, pct in zip(positive_impacts, positive_commodity_labels, positive_percent_labels)],
                                     showlegend=False,
                                     name="Increasing"
                                 ), row=1, col=2)
+                                
+                                # Add impact labels as outside text (using separate invisible bars)
+                                fig.add_trace(go.Bar(
+                                    y=list(range(len(positive_data))),
+                                    x=positive_data[selected_column],
+                                    orientation='h',
+                                    marker_color='rgba(0,0,0,0)',  # Invisible
+                                    text=positive_impacts,  # Changed to impacts for outside
+                                    textposition='outside',
+                                    textfont=dict(size=10),
+                                    hoverinfo='skip',
+                                    showlegend=False,
+                                    name="Impact_Right"
+                                ), row=1, col=2)
+                                
+                                # Add commodity names as annotations at center (x=0, right side)
+                                for i in range(len(positive_data)):
+                                    if positive_data.iloc[i]['Commodities'] != '':
+                                        fig.add_annotation(
+                                            x=0,  # Exactly at center
+                                            y=i,  # Row index matches bar position
+                                            text=positive_data.iloc[i]['Commodities'],
+                                            xanchor="right",  # Text extends to the left
+                                            yanchor="middle",
+                                            font=dict(size=10),
+                                            showarrow=False,
+                                            xref="x2", yref="y2"
+                                        )
                             
                             chart_height = max(300, max_items * 20)
                             
                             # Update layout
                             fig.update_layout(
+                                barmode='overlay',
                                 template="plotly_white",
                                 height=chart_height,
-                                margin=dict(l=150, r=150, t=60, b=20),
+                                margin=dict(l=200, r=200, t=60, b=20),
                                 font=dict(family="Manrope, sans-serif", size=11),
                                 title=dict(
                                     text=f"<b>{chart_label} Performance </b>",
@@ -288,23 +380,22 @@ if df_data is not None and df_list is not None:
                                 showlegend=False
                             )
                             
-                            # Update axes - Hide x-axis completely and set range for text display
-                            # For negative values (left side), extend negative range, set positive to 0
-                            min_negative = negative_data[selected_column].min() if len(negative_data) > 0 and negative_data[selected_column].min() < 0 else -0.01
+                            # Update axes - Hide x-axis completely and extend range for both subplots
+                            
+                            # For negative values (left side), extend range from negative to positive
                             fig.update_xaxes(
                                 visible=False,
                                 showgrid=False,
                                 zeroline=False,
-                                range=[min_negative * 1.8, 0],
+                                range=[-max_range, 0],
                                 row=1, col=1
                             )
-                            # For positive values (right side), extend positive range, set negative to 0
-                            max_positive = positive_data[selected_column].max() if len(positive_data) > 0 and positive_data[selected_column].max() > 0 else 0.01
+                            # For positive values (right side), extend range from negative to positive
                             fig.update_xaxes(
                                 visible=False,
                                 showgrid=False,
                                 zeroline=False,
-                                range=[0, max_positive * 1.8],
+                                range=[0, max_range],
                                 row=1, col=2
                             )
                             # Hide y-axis ticks and labels since we show info in text

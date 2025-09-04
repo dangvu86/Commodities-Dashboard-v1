@@ -191,3 +191,4 @@ streamlit run Home.py --server.port 8501
 - Data caching expires every 3600 seconds (1 hour)
 - Large datasets may require increased chart height calculations
 - Stock API calls are rate-limited and cached to prevent timeouts
+- to memorize
