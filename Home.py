@@ -4,8 +4,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from modules.data_loader import load_data
 from modules.calculations import calculate_price_changes
-from modules.styling import configure_page_style, style_dataframe, display_market_metrics, display_aggrid_table
+from modules.styling import configure_page_style, style_dataframe, display_market_metrics, display_aggrid_table, display_news_section
 from modules.stock_data import fetch_multiple_stocks, get_stock_tickers_from_impact
+from modules.news_data import get_news_for_impact_stocks
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -346,11 +347,19 @@ if df_data is not None and df_list is not None:
             filtered_commodities = sorted([c for c in available_commodities if c in filtered_df['Commodities'].values])
             
             if filtered_commodities:
+                # Find the most bullish commodity (highest %Week) as default
+                filtered_commodity_df = filtered_df[filtered_df['Commodities'].isin(filtered_commodities)]
+                if not filtered_commodity_df.empty and '%Week' in filtered_commodity_df.columns:
+                    most_bullish = filtered_commodity_df.loc[filtered_commodity_df['%Week'].idxmax(), 'Commodities']
+                    default_commodity = [most_bullish] if most_bullish in filtered_commodities else filtered_commodities[:1]
+                else:
+                    default_commodity = filtered_commodities[:1] if len(filtered_commodities) >= 1 else filtered_commodities
+                
                 # Allow user to select specific commodities for the line chart
                 selected_line_commodities = st.multiselect(
                     "Select commodities to display in line chart:",
                     options=filtered_commodities,
-                    default=filtered_commodities[:1] if len(filtered_commodities) >= 1 else filtered_commodities,
+                    default=default_commodity,
                     key="line_chart_commodities"
                 )
                 
@@ -549,6 +558,26 @@ if df_data is not None and df_list is not None:
                                 st.plotly_chart(fig_stock, use_container_width=True)
                             else:
                                 st.info("No stock data available for the selected commodities.")
+                    
+                    # --- NEWS SECTION ---
+                    # Add news section below the stock charts when impact stocks are available
+                    if selected_stocks:
+                        st.markdown("---")  # Divider
+                        
+                        # Fetch news for impact stocks
+                        with st.spinner("📰 Đang tải tin tức cho các mã cổ phiếu impact..."):
+                            try:
+                                stock_news = get_news_for_impact_stocks(list(selected_stocks), limit_per_stock=3)
+                                
+                                if stock_news:
+                                    display_news_section(stock_news, selected_stocks)
+                                else:
+                                    st.info("🔍 Không tìm thấy tin tức nào cho các mã cổ phiếu đã chọn.")
+                            
+                            except Exception as e:
+                                st.warning(f"⚠️ Lỗi khi tải tin tức: {str(e)}")
+                                st.info("💡 Vui lòng thử lại sau hoặc kiểm tra kết nối internet.")
+                                
                 else:
                     st.info("Please select at least one commodity to display in the line chart.")
             else:

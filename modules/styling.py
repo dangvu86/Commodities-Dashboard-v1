@@ -522,3 +522,263 @@ def display_aggrid_table(df: pd.DataFrame):
         theme='streamlit',
         update_mode='NO_UPDATE'
     )
+
+
+def style_news_container():
+    """
+    CSS styling for news section containers
+    """
+    news_css = """
+    <style>
+    .news-section {
+        background-color: var(--bg-white);
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        margin-top: 2rem;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .news-header {
+        color: var(--primary-teal);
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .news-item {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .news-item:hover {
+        border-color: var(--primary-teal);
+        box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.1);
+    }
+    
+    .news-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+        line-height: 1.4;
+    }
+    
+    .news-meta {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+    }
+    
+    .news-ticker {
+        background-color: var(--primary-teal);
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .news-time {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .news-summary {
+        color: #4b5563;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        margin-top: 0.5rem;
+    }
+    
+    .news-stats {
+        background-color: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+    
+    .news-stats-text {
+        color: #0369a1;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .no-news {
+        text-align: center;
+        color: #6b7280;
+        font-style: italic;
+        padding: 2rem;
+    }
+    
+    .news-external-link {
+        color: var(--primary-teal);
+        text-decoration: none;
+        font-size: 0.8rem;
+        margin-left: auto;
+    }
+    
+    .news-external-link:hover {
+        text-decoration: underline;
+    }
+    </style>
+    """
+    st.markdown(news_css, unsafe_allow_html=True)
+
+
+def display_news_section(stock_news: dict, selected_stocks: list = None):
+    """
+    Display news section with expandable news items
+    
+    Args:
+        stock_news (dict): Dictionary of stock news data
+        selected_stocks (list): List of selected stock tickers to filter news
+    """
+    from modules.news_data import get_news_summary_stats, get_relative_time
+    
+    # Apply news styling
+    style_news_container()
+    
+    # Container for news section
+    st.markdown('<div class="news-section">', unsafe_allow_html=True)
+    
+    # Header
+    st.markdown('''
+        <div class="news-header">
+            📰 Tin Tức Impact Stocks
+        </div>
+    ''', unsafe_allow_html=True)
+    
+    if not stock_news:
+        st.markdown('<div class="no-news">Không có tin tức nào được tìm thấy cho các mã cổ phiếu được chọn.</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+    
+    # Display summary statistics
+    stats = get_news_summary_stats(stock_news)
+    if stats['total_news'] > 0:
+        st.markdown(f'''
+            <div class="news-stats">
+                <div class="news-stats-text">
+                    📊 Tìm thấy <strong>{stats['total_news']} tin tức</strong> từ <strong>{stats['total_stocks']} mã cổ phiếu</strong>
+                </div>
+            </div>
+        ''', unsafe_allow_html=True)
+    
+    # Filter news by selected stocks if provided
+    filtered_news = stock_news
+    if selected_stocks:
+        filtered_news = {ticker: news for ticker, news in stock_news.items() 
+                        if ticker in selected_stocks}
+    
+    # Display news items
+    news_displayed = 0
+    max_news_display = 10  # Limit total news items displayed
+    
+    for ticker, news_list in filtered_news.items():
+        if news_displayed >= max_news_display:
+            break
+            
+        for news_item in news_list:
+            if news_displayed >= max_news_display:
+                break
+                
+            # Create expandable news item
+            with st.expander(f"📄 {news_item['title']}", expanded=False):
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    # News metadata
+                    relative_time = get_relative_time(news_item['published_date'])
+                    st.markdown(f'''
+                        <div class="news-meta">
+                            <span class="news-ticker">{ticker}</span>
+                            <span class="news-time">🕐 {relative_time}</span>
+                        </div>
+                    ''', unsafe_allow_html=True)
+                    
+                    # News subtitle if available
+                    if news_item.get('subtitle') and news_item['subtitle'] != 'nan':
+                        st.markdown(f"**{news_item['subtitle']}**")
+                    
+                    # News content/summary
+                    content_to_show = news_item.get('content', news_item.get('summary', ''))
+                    if content_to_show and content_to_show != 'nan':
+                        st.write(content_to_show)
+                    else:
+                        st.write("*Không có nội dung chi tiết*")
+                
+                with col2:
+                    # External link if available
+                    if news_item.get('url') and news_item['url'] != 'nan':
+                        st.markdown(f'''
+                            <a href="{news_item['url']}" target="_blank" class="news-external-link">
+                                🔗 Xem chi tiết
+                            </a>
+                        ''', unsafe_allow_html=True)
+                    
+                    # News image if available
+                    if news_item.get('image_url') and news_item['image_url'] != 'nan':
+                        try:
+                            st.image(news_item['image_url'], width=150)
+                        except:
+                            pass  # Ignore image loading errors
+            
+            news_displayed += 1
+    
+    # Show more news indicator if there are more items
+    if news_displayed >= max_news_display:
+        remaining_news = sum(len(news_list) for news_list in filtered_news.values()) - news_displayed
+        if remaining_news > 0:
+            st.info(f"📝 Còn {remaining_news} tin tức khác. Chỉ hiển thị {max_news_display} tin mới nhất.")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def create_expandable_news_item(news_item: dict) -> str:
+    """
+    Create HTML for a single expandable news item
+    
+    Args:
+        news_item (dict): News item data
+        
+    Returns:
+        str: HTML string for the news item
+    """
+    from modules.news_data import get_relative_time
+    
+    relative_time = get_relative_time(news_item['published_date'])
+    ticker = news_item['ticker']
+    title = news_item['title']
+    summary = news_item.get('summary', '')
+    
+    # Truncate summary if too long
+    if len(summary) > 150:
+        summary = summary[:150] + '...'
+    
+    news_html = f'''
+    <div class="news-item" onclick="toggleNewsContent('{news_item.get('news_id', '')}')">
+        <div class="news-title">{title}</div>
+        <div class="news-meta">
+            <span class="news-ticker">{ticker}</span>
+            <span class="news-time">🕐 {relative_time}</span>
+        </div>
+        <div class="news-summary">{summary}</div>
+    </div>
+    '''
+    
+    return news_html

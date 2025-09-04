@@ -15,6 +15,7 @@ This is a Streamlit-based commodity market dashboard that displays real-time com
   - `calculations.py` - Price change calculations (daily, weekly, monthly, quarterly, YTD)
   - `styling.py` - Clean CSS styling and KPI metrics display
   - `stock_data.py` - Stock price fetching from TCBS API with caching
+  - `news_data.py` - News fetching from vnstock API with structured data processing
 - `pages/` - Additional Streamlit pages (multi-page app structure)
 - `data/` - CSV data files:
   - `Data.csv` - Historical commodity price data
@@ -27,6 +28,7 @@ This is a Streamlit-based commodity market dashboard that displays real-time com
 4. Performance charts generated with tab-based interface
 5. Line charts use date range and interval selections from sidebar
 6. Stock data fetched from TCBS API based on Impact column stock codes
+7. News data fetched from vnstock API and displayed below stock charts with expandable UI
 
 ## Development Commands
 
@@ -61,6 +63,7 @@ streamlit run Home.py --server.port 8501
 2. **Detailed Price Table** - Advanced AG-Grid table with scroll view, conditional formatting, and professional styling
 3. **Performance Chart & Impact** - Tab-based charts with split view (decreasing/increasing performance)
 4. **Commodity Price Trends** - Interactive line chart with stock impact integration
+5. **News Section** - Expandable news items from vnstock API displayed below stock charts when impact stocks are selected
 
 ## Key Technical Details
 
@@ -114,6 +117,13 @@ streamlit run Home.py --server.port 8501
 - **Sector Metrics:** Strongest Sector (highest avg %Week), Extreme Moves count (>±2% weekly change)
 - **Calculation Logic:** Strongest sector based on average weekly performance, extreme moves count absolute weekly changes > 2%
 
+**News Integration:**
+- **vnstock API:** Uses `Vnstock().stock().company.news()` for Vietnamese stock news
+- **Caching Strategy:** News cached for 30 minutes (1800 seconds) to balance freshness with performance
+- **Progressive Loading:** News fetched after charts are rendered to prevent blocking UI
+- **Error Handling:** Graceful fallback when news API fails, with user-friendly error messages
+- **Content Processing:** Automatic summary generation, date formatting, and Vietnamese text handling
+
 ## Advanced Table Features (AG-Grid)
 
 **Detailed Price Table Implementation:**
@@ -148,8 +158,36 @@ streamlit run Home.py --server.port 8501
 - **Interactive Features:** Standard Plotly hover and zoom, no click interactions
 
 **Module Structure:**
-- `styling.py` contains `display_aggrid_table()` function
-- Comprehensive CSS theming for AG-Grid components
+- `styling.py` contains `display_aggrid_table()` and `display_news_section()` functions
+- Comprehensive CSS theming for AG-Grid components and news UI
 - JavaScript conditional formatting with JsCode
 - Price and percentage formatters for consistent display
-- to memorize
+- News styling with expandable containers, Vietnamese time formatting, and responsive design
+## Error Handling and Debugging
+
+**Common Issues:**
+- **Data Loading Failures:** Check CSV file paths in `data/` directory and ensure proper column formats
+- **Stock Data API Issues:** TCBS API has rate limits - uses caching with 1-hour TTL to prevent excessive requests
+- **Performance Issues:** All main data operations use `@st.cache_data(ttl=3600)` - clear cache if data updates needed
+- **Chart Rendering:** Plotly charts use specific margin and spacing settings - modify carefully to avoid text cutoff
+- **AG-Grid Styling:** Complex CSS theming in `styling.py` - test thoroughly when modifying table appearance
+
+**Development Tips:**
+- Use `streamlit run Home.py --server.runOnSave true` for auto-reload during development
+- Clear browser cache if CSS changes don't appear
+- Check browser console for JavaScript errors related to AG-Grid formatting
+- Test with different data sizes - chart layouts dynamically adjust height based on item count
+
+## Data Requirements
+
+**CSV Structure:**
+- `Data.csv`: Must contain 'Date', 'Commodities', 'Price' columns with proper formatting
+- `Commo_list.csv`: Must contain 'Commodities', 'Sector', 'Nation', 'Impact' columns
+- Date format: Ensure consistent date parsing (handled in data_loader.py)
+- Commodity names: Must match exactly between both CSV files (whitespace cleaned automatically)
+- Impact column: Contains Vietnamese stock codes for TCBS API integration
+
+**Performance Considerations:**
+- Data caching expires every 3600 seconds (1 hour)
+- Large datasets may require increased chart height calculations
+- Stock API calls are rate-limited and cached to prevent timeouts
