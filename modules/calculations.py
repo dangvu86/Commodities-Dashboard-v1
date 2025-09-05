@@ -73,18 +73,12 @@ def calculate_price_changes(df_data, df_list, selected_date):
         'Commodities', 'Sector', 'Nation', 'Current Price',
         '%Day', '%Week', '%Month', '%Quarter', '%YTD',
         '30D Avg', '52W High', '52W Low',
-        'Change type', 'Impact'
+        'Change type', 'Impact', 'Direct Impact', 'Inverse Impact'
     ]
     
     # Ensure all display columns exist
     for col in display_cols:
         if col not in final_df.columns:
             final_df[col] = np.nan
-    
-    # Add Direct Impact and Inverse Impact columns for internal use (charts) but not for display
-    internal_cols = display_cols + ['Direct Impact', 'Inverse Impact'] 
-    for col in internal_cols:
-        if col not in final_df.columns:
-            final_df[col] = np.nan
 
-    return final_df[internal_cols].copy()
+    return final_df[display_cols]

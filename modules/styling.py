@@ -372,9 +372,8 @@ def display_aggrid_table(df: pd.DataFrame):
         st.warning("No data to display")
         return
     
-    # Prepare dataframe - exclude Direct Impact and Inverse Impact columns from display
-    columns_to_display = [col for col in df.columns if col not in ['Direct Impact', 'Inverse Impact']]
-    df_display = df[columns_to_display].copy()
+    # Prepare dataframe
+    df_display = df.copy()
     
     # Convert percent columns to display format (2.34 instead of 0.0234)
     percent_cols = ["%Day", "%Week", "%Month", "%Quarter", "%YTD"]
@@ -505,6 +504,12 @@ def display_aggrid_table(df: pd.DataFrame):
     for col, header_name in column_mappings.items():
         if col in df_display.columns:
             gb.configure_column(col, headerName=header_name)
+    
+    # Hide Direct Impact and Inverse Impact columns by setting width to 0
+    if "Direct Impact" in df_display.columns:
+        gb.configure_column("Direct Impact", width=0, minWidth=0, maxWidth=0)
+    if "Inverse Impact" in df_display.columns:
+        gb.configure_column("Inverse Impact", width=0, minWidth=0, maxWidth=0)
 
     # Configure grid options with scroll (no pagination)
     gb.configure_pagination(enabled=False)
