@@ -181,14 +181,7 @@ if df_data is not None and df_list is not None:
             for chart_label, (selected_column, tab) in chart_options.items():
                 with tab:
                     if selected_column in filtered_df.columns:
-                        # Build column list based on what's available
-                        columns_to_select = ['Commodities', selected_column, 'Impact']
-                        if 'Direct Impact' in filtered_df.columns:
-                            columns_to_select.append('Direct Impact')
-                        if 'Inverse Impact' in filtered_df.columns:
-                            columns_to_select.append('Inverse Impact')
-                        
-                        chart_data = filtered_df[columns_to_select].copy()
+                        chart_data = filtered_df[['Commodities', selected_column, 'Impact', 'Direct Impact', 'Inverse Impact']].copy()
                         chart_data.dropna(subset=[selected_column], inplace=True)
                         
                         # Filter out commodities with 0% change
@@ -209,35 +202,25 @@ if df_data is not None and df_list is not None:
                             # Pad shorter side with empty entries - ensuring consistent indexing
                             if len(positive_data) < max_items:
                                 padding_needed = max_items - len(positive_data)
-                                # Build empty rows based on available columns
-                                empty_row_data = {
+                                empty_rows = pd.DataFrame({
                                     'Commodities': [''] * padding_needed,
                                     selected_column: [0] * padding_needed,
-                                    'Impact': [''] * padding_needed
-                                }
-                                if 'Direct Impact' in chart_data.columns:
-                                    empty_row_data['Direct Impact'] = [''] * padding_needed
-                                if 'Inverse Impact' in chart_data.columns:
-                                    empty_row_data['Inverse Impact'] = [''] * padding_needed
-                                
-                                empty_rows = pd.DataFrame(empty_row_data)
+                                    'Impact': [''] * padding_needed,
+                                    'Direct Impact': [''] * padding_needed,
+                                    'Inverse Impact': [''] * padding_needed
+                                })
                                 positive_data = pd.concat([positive_data, empty_rows], ignore_index=True)
                                 positive_data = positive_data.reset_index(drop=True)
                             
                             if len(negative_data) < max_items:
                                 padding_needed = max_items - len(negative_data)
-                                # Build empty rows based on available columns
-                                empty_row_data = {
+                                empty_rows = pd.DataFrame({
                                     'Commodities': [''] * padding_needed,
                                     selected_column: [0] * padding_needed,
-                                    'Impact': [''] * padding_needed
-                                }
-                                if 'Direct Impact' in chart_data.columns:
-                                    empty_row_data['Direct Impact'] = [''] * padding_needed
-                                if 'Inverse Impact' in chart_data.columns:
-                                    empty_row_data['Inverse Impact'] = [''] * padding_needed
-                                
-                                empty_rows = pd.DataFrame(empty_row_data)
+                                    'Impact': [''] * padding_needed,
+                                    'Direct Impact': [''] * padding_needed,
+                                    'Inverse Impact': [''] * padding_needed
+                                })
                                 negative_data = pd.concat([negative_data, empty_rows], ignore_index=True)
                                 negative_data = negative_data.reset_index(drop=True)
                             
@@ -268,13 +251,8 @@ if df_data is not None and df_list is not None:
                                     else:
                                         # Impact for outside (left of bar) - NEW LOGIC
                                         # For negative charts: Direct Impact -> stock - negative, Inverse Impact -> stock - positive
-                                        direct_impact = ''
-                                        inverse_impact = ''
-                                        
-                                        if 'Direct Impact' in row.index and pd.notna(row.get('Direct Impact', '')):
-                                            direct_impact = str(row.get('Direct Impact', '')).strip()
-                                        if 'Inverse Impact' in row.index and pd.notna(row.get('Inverse Impact', '')):
-                                            inverse_impact = str(row.get('Inverse Impact', '')).strip()
+                                        direct_impact = row.get('Direct Impact', '') if pd.notna(row.get('Direct Impact', '')) else ''
+                                        inverse_impact = row.get('Inverse Impact', '') if pd.notna(row.get('Inverse Impact', '')) else ''
                                         
                                         # Combine impact and percentage into single label
                                         impact_parts = []
@@ -357,13 +335,8 @@ if df_data is not None and df_list is not None:
                                         
                                         # Impact for annotation (left of bar) - NEW LOGIC
                                         # For positive charts: Direct Impact -> stock - positive, Inverse Impact -> stock - negative
-                                        direct_impact = ''
-                                        inverse_impact = ''
-                                        
-                                        if 'Direct Impact' in row.index and pd.notna(row.get('Direct Impact', '')):
-                                            direct_impact = str(row.get('Direct Impact', '')).strip()
-                                        if 'Inverse Impact' in row.index and pd.notna(row.get('Inverse Impact', '')):
-                                            inverse_impact = str(row.get('Inverse Impact', '')).strip()
+                                        direct_impact = row.get('Direct Impact', '') if pd.notna(row.get('Direct Impact', '')) else ''
+                                        inverse_impact = row.get('Inverse Impact', '') if pd.notna(row.get('Inverse Impact', '')) else ''
                                         
                                         # Combine percentage and impact into single label (percentage first for positive)
                                         impact_parts = []
@@ -519,19 +492,17 @@ if df_data is not None and df_list is not None:
                     for commodity in selected_line_commodities:
                         commodity_row = filtered_df[filtered_df['Commodities'] == commodity]
                         if not commodity_row.empty:
-                            # Check Direct Impact column if it exists
-                            if 'Direct Impact' in commodity_row.columns:
-                                direct_impact = commodity_row['Direct Impact'].iloc[0]
-                                if pd.notna(direct_impact) and str(direct_impact).strip():
-                                    stock_list = [s.strip().upper() for s in str(direct_impact).split(',')]
-                                    selected_stocks.update(stock_list)
+                            # Check Direct Impact column
+                            direct_impact = commodity_row.get('Direct Impact', pd.Series([None])).iloc[0]
+                            if pd.notna(direct_impact) and str(direct_impact).strip():
+                                stock_list = [s.strip().upper() for s in str(direct_impact).split(',')]
+                                selected_stocks.update(stock_list)
                             
-                            # Check Inverse Impact column if it exists
-                            if 'Inverse Impact' in commodity_row.columns:
-                                inverse_impact = commodity_row['Inverse Impact'].iloc[0]
-                                if pd.notna(inverse_impact) and str(inverse_impact).strip():
-                                    stock_list = [s.strip().upper() for s in str(inverse_impact).split(',')]
-                                    selected_stocks.update(stock_list)
+                            # Check Inverse Impact column
+                            inverse_impact = commodity_row.get('Inverse Impact', pd.Series([None])).iloc[0]
+                            if pd.notna(inverse_impact) and str(inverse_impact).strip():
+                                stock_list = [s.strip().upper() for s in str(inverse_impact).split(',')]
+                                selected_stocks.update(stock_list)
                     
                     # Create layout - side by side if we have stocks
                     if selected_stocks:
