@@ -59,7 +59,7 @@ def calculate_price_changes(df_data, df_list, selected_date):
     final_df.reset_index(inplace=True) # Turn 'Commodities' index into a column
 
     # Prepare df_list for a clean merge
-    list_subset = df_list[['Commodities', 'Sector', 'Nation', 'Impact']].drop_duplicates(subset='Commodities', keep='first').copy()
+    list_subset = df_list[['Commodities', 'Sector', 'Nation', 'Impact', 'Direct Impact', 'Inverse Impact']].drop_duplicates(subset='Commodities', keep='first').copy()
 
     # Defensive cleaning: ensure join keys are clean strings
     final_df['Commodities'] = final_df['Commodities'].astype(str).str.strip()
@@ -76,8 +76,15 @@ def calculate_price_changes(df_data, df_list, selected_date):
         'Change type', 'Impact'
     ]
     
+    # Ensure all display columns exist
     for col in display_cols:
         if col not in final_df.columns:
             final_df[col] = np.nan
+    
+    # Add Direct Impact and Inverse Impact columns for internal use (charts) but not for display
+    internal_cols = display_cols + ['Direct Impact', 'Inverse Impact'] 
+    for col in internal_cols:
+        if col not in final_df.columns:
+            final_df[col] = np.nan
 
-    return final_df[display_cols]
+    return final_df[internal_cols].copy()

@@ -84,11 +84,17 @@ streamlit run Home.py --server.port 8501
 - **Tab-based Interface:** 5 tabs (Daily, Weekly, Monthly, Quarterly, YTD)
 - **Split View Design:** Left side for decreasing performance, right side for increasing
 - **Balanced Layout:** Empty bars added to balance both sides equally
-- **Custom Labels:** 
-  - Decreasing: `(Impact) Commodity   -2.5%`
-  - Increasing: `2.5%   Commodity (Impact)`
+- **Impact Stock Integration:** Uses Direct Impact and Inverse Impact columns from Commo_list.csv
+- **Combined Labels:** Single label combining percentage and impact stocks with proper spacing
+  - Decreasing: `HPG, HSG, NKG - negative   -2.5%`
+  - Increasing: `2.5%   HPG, HSG, NKG - positive`
+- **Impact Logic:**
+  - Negative charts: Direct Impact → `stock - negative`, Inverse Impact → `stock - positive`
+  - Positive charts: Direct Impact → `stock - positive`, Inverse Impact → `stock - negative`
+  - Commodities with both impacts show combined: `PLX - negative, VJC, HVN - positive -1.8%`
 - **No Axis Display:** X and Y axes completely hidden for clean presentation
-- **Text Positioning:** `textposition='outside'` for all labels
+- **Text Positioning:** `textposition='outside'` for combined labels on invisible bars
+- **Extended Range:** X-axis range multiplied by 2 to prevent label overlap
 
 **Chart Technical Specs:**
 - Uses `make_subplots` with `horizontal_spacing=0` for seamless split
@@ -100,12 +106,13 @@ streamlit run Home.py --server.port 8501
 **Data Dependencies:**
 - CSV files in `data/` directory with specific columns:
   - `Data.csv`: Date, Commodities, Price
-  - `Commo_list.csv`: Commodities, Sector, Nation, Impact (stock codes)
+  - `Commo_list.csv`: Commodities, Sector, Nation, Impact, Direct Impact, Inverse Impact (stock codes)
 - All date calculations based on latest available data
 - Change type calculation uses weekly performance for classification
+- Direct Impact and Inverse Impact columns are included in internal data processing but hidden from detailed price table display
 
 **Stock Impact Integration:**
-- **Automatic Detection:** Extracts stock codes from Impact column when commodities selected
+- **Automatic Detection:** Extracts stock codes from Direct Impact and Inverse Impact columns when commodities selected
 - **Side-by-Side Charts:** Displays commodity prices (left) and stock prices (right) when impact stocks available
 - **Synchronized Options:** Both charts use same date range and interval from sidebar
 - **TCBS API Integration:** Fetches Vietnamese stock data with rate limiting and caching
@@ -163,6 +170,8 @@ streamlit run Home.py --server.port 8501
 - JavaScript conditional formatting with JsCode
 - Price and percentage formatters for consistent display
 - News styling with expandable containers, Vietnamese time formatting, and responsive design
+- `display_aggrid_table()` filters out Direct Impact and Inverse Impact columns from table display
+- `calculations.py` includes Direct Impact and Inverse Impact in data processing but separates display columns
 ## Error Handling and Debugging
 
 **Common Issues:**

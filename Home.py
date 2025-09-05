@@ -181,7 +181,7 @@ if df_data is not None and df_list is not None:
             for chart_label, (selected_column, tab) in chart_options.items():
                 with tab:
                     if selected_column in filtered_df.columns:
-                        chart_data = filtered_df[['Commodities', selected_column, 'Impact']].copy()
+                        chart_data = filtered_df[['Commodities', selected_column, 'Impact', 'Direct Impact', 'Inverse Impact']].copy()
                         chart_data.dropna(subset=[selected_column], inplace=True)
                         
                         # Filter out commodities with 0% change
@@ -205,7 +205,9 @@ if df_data is not None and df_list is not None:
                                 empty_rows = pd.DataFrame({
                                     'Commodities': [''] * padding_needed,
                                     selected_column: [0] * padding_needed,
-                                    'Impact': [''] * padding_needed
+                                    'Impact': [''] * padding_needed,
+                                    'Direct Impact': [''] * padding_needed,
+                                    'Inverse Impact': [''] * padding_needed
                                 })
                                 positive_data = pd.concat([positive_data, empty_rows], ignore_index=True)
                                 positive_data = positive_data.reset_index(drop=True)
@@ -215,7 +217,9 @@ if df_data is not None and df_list is not None:
                                 empty_rows = pd.DataFrame({
                                     'Commodities': [''] * padding_needed,
                                     selected_column: [0] * padding_needed,
-                                    'Impact': [''] * padding_needed
+                                    'Impact': [''] * padding_needed,
+                                    'Direct Impact': [''] * padding_needed,
+                                    'Inverse Impact': [''] * padding_needed
                                 })
                                 negative_data = pd.concat([negative_data, empty_rows], ignore_index=True)
                                 negative_data = negative_data.reset_index(drop=True)
@@ -223,14 +227,14 @@ if df_data is not None and df_list is not None:
                             # Create subplot with 2 columns: negative (left) and positive (right)
                             fig = make_subplots(
                                 rows=1, cols=2,
-                                horizontal_spacing=0.35,
+                                horizontal_spacing=0.25,
                                 column_widths=[0.49, 0.49]
                             )
                             
                             # Calculate max range for consistent positioning
                             max_negative_abs = abs(negative_data[selected_column].min()) if len(negative_data) > 0 and negative_data[selected_column].min() < 0 else 0.01
                             max_positive = positive_data[selected_column].max() if len(positive_data) > 0 and positive_data[selected_column].max() > 0 else 0.01
-                            max_range = max(max_negative_abs, max_positive) * 1
+                            max_range = max(max_negative_abs, max_positive) * 1.5
                             
                             # Add negative performance bars (left side)
                             if len(negative_data) > 0:
@@ -245,12 +249,25 @@ if df_data is not None and df_list is not None:
                                         negative_percent_labels.append('')
                                         negative_commodities.append('')
                                     else:
-                                        # Impact for outside (left of bar)
-                                        impact_text = f"({row['Impact']})" if pd.notna(row['Impact']) and row['Impact'] != '' else ''
-                                        negative_impact_labels.append(impact_text)
+                                        # Impact for outside (left of bar) - NEW LOGIC
+                                        # For negative charts: Direct Impact -> stock - negative, Inverse Impact -> stock - positive
+                                        direct_impact = row.get('Direct Impact', '') if pd.notna(row.get('Direct Impact', '')) else ''
+                                        inverse_impact = row.get('Inverse Impact', '') if pd.notna(row.get('Inverse Impact', '')) else ''
                                         
-                                        # Percentage for inside (center of bar)
-                                        negative_percent_labels.append(f"{row[selected_column]:.1%}")
+                                        # Combine impact and percentage into single label
+                                        impact_parts = []
+                                        if direct_impact:
+                                            impact_parts.append(f"{direct_impact} - negative")
+                                        if inverse_impact:
+                                            impact_parts.append(f"{inverse_impact} - positive")
+                                        
+                                        if impact_parts:
+                                            combined_text = f"{',  '.join(impact_parts)}   {row[selected_column]:.1%}"
+                                        else:
+                                            combined_text = f"{row[selected_column]:.1%}"
+                                        
+                                        negative_impact_labels.append(combined_text)
+                                        negative_percent_labels.append('')  # Empty since we combined
                                         
                                         # Commodity name for annotation (right of bar)
                                         negative_commodities.append(row['Commodities'])
@@ -261,7 +278,7 @@ if df_data is not None and df_list is not None:
                                     x=negative_data[selected_column],
                                     orientation='h',
                                     marker_color=['rgba(225, 29, 72, 0.6)' if x != 0 else 'rgba(0,0,0,0)' for x in negative_data[selected_column]],
-                                    text=negative_percent_labels,  # Only percentage inside
+                                    text='',  # No text on main bar since we combined
                                     textposition='inside',
                                     hovertemplate='<b>%{customdata}</b><br>Change: %{x:.1%}<extra></extra>',
                                     customdata=[f"{imp} {comm} {pct}" for imp, comm, pct in zip(negative_impact_labels, negative_commodities, negative_percent_labels)],
@@ -316,9 +333,24 @@ if df_data is not None and df_list is not None:
                                         # Percentage for inside (center of bar)
                                         positive_percent_labels.append(f"{row[selected_column]:.1%}")
                                         
-                                        # Impact for annotation (left of bar)
-                                        impact_text = f"({row['Impact']})" if pd.notna(row['Impact']) and row['Impact'] != '' else ''
-                                        positive_impacts.append(impact_text)
+                                        # Impact for annotation (left of bar) - NEW LOGIC
+                                        # For positive charts: Direct Impact -> stock - positive, Inverse Impact -> stock - negative
+                                        direct_impact = row.get('Direct Impact', '') if pd.notna(row.get('Direct Impact', '')) else ''
+                                        inverse_impact = row.get('Inverse Impact', '') if pd.notna(row.get('Inverse Impact', '')) else ''
+                                        
+                                        # Combine percentage and impact into single label (percentage first for positive)
+                                        impact_parts = []
+                                        if direct_impact:
+                                            impact_parts.append(f"{direct_impact} - positive")
+                                        if inverse_impact:
+                                            impact_parts.append(f"{inverse_impact} - negative")
+                                        
+                                        if impact_parts:
+                                            combined_text = f"{row[selected_column]:.1%}   {',  '.join(impact_parts)}"
+                                        else:
+                                            combined_text = f"{row[selected_column]:.1%}"
+                                        
+                                        positive_impacts.append(combined_text)
                                 
                                 # Main bar with percentage inside
                                 fig.add_trace(go.Bar(
@@ -326,7 +358,7 @@ if df_data is not None and df_list is not None:
                                     x=positive_data[selected_column],
                                     orientation='h',
                                     marker_color=['rgba(16, 185, 129, 0.6)' if x != 0 else 'rgba(0,0,0,0)' for x in positive_data[selected_column]],
-                                    text=positive_percent_labels,  # Only percentage inside
+                                    text='',  # No text on main bar since we combined
                                     textposition='inside',
                                     hovertemplate='<b>%{customdata}</b><br>Change: %{x:.1%}<extra></extra>',
                                     customdata=[f"{imp} {comm} {pct}" for imp, comm, pct in zip(positive_impacts, positive_commodity_labels, positive_percent_labels)],
@@ -387,7 +419,7 @@ if df_data is not None and df_list is not None:
                                 visible=False,
                                 showgrid=False,
                                 zeroline=False,
-                                range=[-max_range, 0],
+                                range=[-max_range * 2, 0],
                                 row=1, col=1
                             )
                             # For positive values (right side), extend range from negative to positive
@@ -395,7 +427,7 @@ if df_data is not None and df_list is not None:
                                 visible=False,
                                 showgrid=False,
                                 zeroline=False,
-                                range=[0, max_range],
+                                range=[0, max_range * 2],
                                 row=1, col=2
                             )
                             # Hide y-axis ticks and labels since we show info in text
@@ -459,11 +491,17 @@ if df_data is not None and df_list is not None:
                     selected_stocks = set()
                     for commodity in selected_line_commodities:
                         commodity_row = filtered_df[filtered_df['Commodities'] == commodity]
-                        if not commodity_row.empty and pd.notna(commodity_row['Impact'].iloc[0]):
-                            impact = str(commodity_row['Impact'].iloc[0]).strip()
-                            if impact:
-                                # Split by comma in case multiple stocks
-                                stock_list = [s.strip().upper() for s in impact.split(',')]
+                        if not commodity_row.empty:
+                            # Check Direct Impact column
+                            direct_impact = commodity_row.get('Direct Impact', pd.Series([None])).iloc[0]
+                            if pd.notna(direct_impact) and str(direct_impact).strip():
+                                stock_list = [s.strip().upper() for s in str(direct_impact).split(',')]
+                                selected_stocks.update(stock_list)
+                            
+                            # Check Inverse Impact column
+                            inverse_impact = commodity_row.get('Inverse Impact', pd.Series([None])).iloc[0]
+                            if pd.notna(inverse_impact) and str(inverse_impact).strip():
+                                stock_list = [s.strip().upper() for s in str(inverse_impact).split(',')]
                                 selected_stocks.update(stock_list)
                     
                     # Create layout - side by side if we have stocks
