@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/D:\\OneDrive - DRAGON CAPITAL\\Claude\\Commodities-Dashboard-v1-main/**)",
+      "Read(/D:\\OneDrive - DRAGON CAPITAL\\Claude\\Commodities-Dashboard-v1-main/**)",
+      "Read(/D:\\OneDrive - DRAGON CAPITAL\\Claude\\Commodities-Dashboard-v1-main/**)",
+      "Read(/D:\\OneDrive - DRAGON CAPITAL\\Claude\\Commodities-Dashboard-v1-main\\modules/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
