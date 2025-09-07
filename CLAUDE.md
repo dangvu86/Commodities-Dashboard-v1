@@ -69,6 +69,8 @@ streamlit run Home.py --server.port 8501
 
 **Data Processing:**
 - Uses `@st.cache_data(ttl=3600)` for performance optimization
+- **Google Drive Integration:** Loads data from Google Drive URLs with fallback to local files
+- **Environment Variables:** Supports both .env files (local) and Streamlit Cloud secrets (production)
 - All main sections use latest date from data
 - Chart Options (date range/interval) applied to commodity price trends line chart
 - Robust data filtering with multiple criteria
@@ -104,9 +106,11 @@ streamlit run Home.py --server.port 8501
 - Hover templates show full commodity information
 
 **Data Dependencies:**
-- CSV files in `data/` directory with specific columns:
-  - `Data.csv`: Date, Commodities, Price
-  - `Commo_list.csv`: Commodities, Sector, Nation, Impact, Direct Impact, Inverse Impact (stock codes)
+- **Google Drive URLs:** Primary data source via environment variables
+  - `DATA_CSV_URL`: Historical commodity price data (Date, Commodities, Price)
+  - `COMMO_LIST_CSV_URL`: Commodity metadata (Commodities, Sector, Nation, Impact, Direct Impact, Inverse Impact)
+  - `STEEL_DATA_CSV_URL`: Steel production data (en_OrganName, production metrics, consumption data)
+- **Fallback:** Local CSV files in `data/` directory if URLs not available
 - All date calculations based on latest available data
 - Change type calculation uses weekly performance for classification
 - Direct Impact and Inverse Impact columns are included in internal data processing but hidden from detailed price table display
@@ -200,4 +204,48 @@ streamlit run Home.py --server.port 8501
 - Data caching expires every 3600 seconds (1 hour)
 - Large datasets may require increased chart height calculations
 - Stock API calls are rate-limited and cached to prevent timeouts
-- to memorize
+
+## Environment Variables & Deployment
+
+**Local Development (.env file):**
+```env
+DATA_CSV_URL=https://drive.google.com/uc?export=download&id=1277Wt1-eeAJnefUVH1Esjnd5Yju7GcEa
+COMMO_LIST_CSV_URL=https://drive.google.com/uc?export=download&id=1ZDlHju9lnCYykAKEeipH_heWG2yqqVOr
+STEEL_DATA_CSV_URL=https://drive.google.com/uc?export=download&id=1pGJAID4bprGrxx_4CuxWcs969iYQpMsq
+```
+
+**Streamlit Cloud Secrets (Production):**
+```toml
+DATA_CSV_URL = "https://drive.google.com/uc?export=download&id=1277Wt1-eeAJnefUVH1Esjnd5Yju7GcEa"
+COMMO_LIST_CSV_URL = "https://drive.google.com/uc?export=download&id=1ZDlHju9lnCYykAKEeipH_heWG2yqqVOr"
+STEEL_DATA_CSV_URL = "https://drive.google.com/uc?export=download&id=1pGJAID4bprGrxx_4CuxWcs969iYQpMsq"
+```
+
+**Deployment Process:**
+1. **Environment Setup:** Configure secrets in Streamlit Cloud dashboard
+2. **Data Source Priority:** Google Drive URLs → Local files fallback
+3. **Caching Strategy:** All data loading functions use `@st.cache_data(ttl=3600)`
+4. **Error Handling:** Graceful fallback with user-friendly error messages
+
+## Data Loading Functions
+
+**Core Functions in `modules/data_loader.py`:**
+
+- **`load_data()`**: Loads Data.csv and Commo_list.csv with preprocessing and cleaning
+  - Supports both Google Drive URLs and local file fallback
+  - Cleans column names, handles data types, converts dates
+  - Returns: `(df_data, df_list)`
+
+- **`load_steel_data()`**: Loads steel production data from Google Drive
+  - Optional dataset for future steel industry analysis
+  - Returns: `df_steel` or `None` if URL not configured
+
+- **`load_all_data()`**: Convenience function to load all datasets
+  - Combines all data loading with single function call
+  - Returns: `(df_data, df_list, df_steel)`
+
+**Integration Details:**
+- **python-dotenv**: Loads environment variables from .env file
+- **Streamlit Secrets**: Production environment variable management
+- **Error Handling**: Try-catch blocks with informative error messages
+- **Performance**: All functions cached with 1-hour TTL
