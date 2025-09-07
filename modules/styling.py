@@ -1,0 +1,790 @@
+import streamlit as st
+import pandas as pd
+import os
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+
+
+def configure_page_style():
+    """
+    Applies custom CSS for the page with clean styling without background image.
+    """
+    page_style = f"""
+    <style>
+    
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap');
+
+    /* Define color palette */
+    :root {{
+        --primary-teal: #00816D;
+        --secondary-red: #e11d48;
+        --accent-green: #10b981;
+        --bg-light: #f8fafc;
+        --bg-white: #ffffff;
+    }}
+
+    /* Apply font and base styles */
+    html, body, .st-emotion-cache-10trblm {{
+        font-family: 'Manrope', sans-serif;
+    }}
+    
+    /* Main App Background - Clean light background */
+    .stApp {{
+        background-color: var(--bg-light);
+    }}
+
+    /* Sidebar Styling - Using default Streamlit background */
+    /* [data-testid="stSidebar"] > div:first-child {{
+        background-color: var(--primary-teal);
+    }} */
+    
+    /* Sidebar text styling - Using default Streamlit colors */
+    /* [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] h4,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .st-emotion-cache-16txtl3,
+    [data-testid="stSidebar"] .st-emotion-cache-10trblm {{
+        color: #FFFFFF;
+    }}
+    [data-testid="stSidebar"] .st-emotion-cache-1g8p9hb {{
+         color: #E0E0E0;
+    }} */
+    
+    /* Sidebar navigation links - Using default Streamlit colors */
+    /* [data-testid="stSidebarNav"] a span {{
+        color: #FFFFFF;
+    }}
+    [data-testid="stSidebarNav"] a[aria-current="page"] span {{
+        color: #FFFFFF;
+    }} */
+    
+    /* Hide sidebar collapse button text */
+    [data-testid="stSidebarCollapseButton"] p {{
+        display: none;
+    }}
+
+    /* Main Content Styling */
+    .block-container {{
+        background-color: var(--bg-white);
+        padding: 2rem 3rem;
+        border-radius: 0.75rem;
+        margin: 1rem;
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    }}
+    
+    /* Header styles */
+    h1, h2, h3 {{
+        color: var(--primary-teal);
+        font-weight: 700;
+    }}
+    .st-emotion-cache-10trblm, .st-emotion-cache-16txtl3 {{
+        color: var(--primary-teal);
+    }}
+   
+    /* Content wrapper styles */
+    .metric-container-wrapper, .chart-wrapper {{
+        background-color: var(--bg-white);
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        margin-bottom: 2rem;
+        border: 1px solid #e2e8f0;
+    }}
+    
+    </style>
+    """
+    st.markdown(page_style, unsafe_allow_html=True)
+
+def display_market_metrics(df: pd.DataFrame):
+    """
+    Displays the Key Market Metrics with smaller cards.
+    """
+    if df.empty:
+        st.info("No data available to display Key Market Metrics for the selected filters.")
+        return
+
+    css_style = """
+    <style>
+        .metrics-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        .metric-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+        .metric-card {
+            background-color: #FFFFFF;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 90px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-top: 4px solid;
+            color: #333;
+        }
+        
+        .metric-card .title {
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        .metric-card .commodity-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin: auto 0;
+            line-height: 1.1;
+        }
+        .metric-card .value {
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .empty-card {
+            background-color: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .bullish-card .title { color: var(--accent-green); }
+        .bullish-card { border-color: var(--accent-green); }
+        .bullish-card .value { color: var(--accent-green); }
+        .bearish-card .title { color: var(--secondary-red); }
+        .bearish-card { border-color: var(--secondary-red); }
+        .bearish-card .value { color: var(--secondary-red); }
+
+        .avg-card .title { color: #ea580c; }
+        .avg-card { border-color: #ea580c; }
+        .avg-card .value { color: #ea580c; }
+
+        .leader-card .title { color: #7c3aed; }
+        .leader-card { border-color: #7c3aed; }
+        .leader-card .value { color: #7c3aed; }
+    </style>
+    """
+    
+    # Section headers
+    headers_html = """
+    <div class="metrics-section">
+        <div>
+            <h3 style='
+                color: #00816D; 
+                font-size: 1.3rem; 
+                font-weight: 500;
+                text-align: left;
+                margin-bottom: 15px;
+            '>
+                Key Market Metrics
+            </h3>
+        </div>
+        <div>
+            <h3 style='
+                color: #00816D; 
+                font-size: 1.3rem; 
+                font-weight: 500;
+                text-align: left;
+                margin-bottom: 15px;
+            '>
+                Sector Metrics
+            </h3>
+        </div>
+    </div>
+    """
+    
+    # Calculations
+    most_bullish = df.loc[df['%Week'].idxmax()] if not df['%Week'].empty and df['%Week'].notna().any() else None
+    most_bearish = df.loc[df['%Week'].idxmin()] if not df['%Week'].empty and df['%Week'].notna().any() else None
+    
+    # Placeholder for highest volatility (to be calculated later)
+    highest_volatility = "TBD"
+    
+    monthly_leader = df.loc[df['%Month'].idxmax()] if not df['%Month'].empty and df['%Month'].notna().any() else None
+    
+    # Sector calculations
+    sector_performance = df.groupby('Sector')['%Week'].mean()
+    strongest_sector = sector_performance.idxmax() if not sector_performance.empty else 'N/A'
+    strongest_sector_perf = sector_performance.max() if not sector_performance.empty else 0
+    
+    # Count commodities with extreme moves (>±2%)
+    extreme_moves_count = len(df[abs(df['%Week']) > 0.02]) if not df['%Week'].empty else 0
+
+    # HTML Content
+    html_content = f"""
+    <div class="metrics-section">
+        <div class="metric-container">
+            <div class="metric-card bullish-card">
+                <div class="title">↑ Most Bullish</div>
+                <div class="commodity-name">{most_bullish['Commodities'] if most_bullish is not None else 'N/A'}</div>
+                <div class="value">{f"{most_bullish['%Week']:.1%}" if most_bullish is not None and pd.notna(most_bullish['%Week']) else 'N/A'}</div>
+            </div>
+            <div class="metric-card bearish-card">
+                <div class="title">↓ Most Bearish</div>
+                <div class="commodity-name">{most_bearish['Commodities'] if most_bearish is not None else 'N/A'}</div>
+                <div class="value">{f"{most_bearish['%Week']:.1%}" if most_bearish is not None and pd.notna(most_bearish['%Week']) else 'N/A'}</div>
+            </div>
+            <div class="metric-card avg-card">
+                <div class="title">Highest Volatility</div>
+                <div class="commodity-name" style="font-size: 20px;">{highest_volatility}</div>
+                <div class="value">To Calculate</div>
+            </div>
+            <div class="metric-card leader-card">
+                <div class="title">🏆 Monthly Leader</div>
+                <div class="commodity-name">{monthly_leader['Commodities'] if monthly_leader is not None else 'N/A'}</div>
+                <div class="value">{f"{monthly_leader['%Month']:.1%}" if monthly_leader is not None and pd.notna(monthly_leader['%Month']) else 'N/A'}</div>
+            </div>
+        </div>
+        <div class="metric-container">
+            <div class="metric-card leader-card">
+                <div class="title">Strongest Sector</div>
+                <div class="commodity-name">{strongest_sector}</div>
+                <div class="value">{f"{strongest_sector_perf:.1%}" if pd.notna(strongest_sector_perf) else 'N/A'}</div>
+            </div>
+            <div class="metric-card avg-card">
+                <div class="title">Extreme Moves (>±2%)</div>
+                <div class="commodity-name" style="font-size: 20px;">{extreme_moves_count}</div>
+                <div class="value">Commodities</div>
+            </div>
+            <div class="metric-card empty-card">
+                <div>Future KPI 3</div>
+            </div>
+            <div class="metric-card empty-card">
+                <div>Future KPI 4</div>
+            </div>
+        </div>
+    </div>
+    """
+    
+    st.markdown(css_style + headers_html + html_content, unsafe_allow_html=True)
+
+def style_dataframe(df: pd.DataFrame):
+    df_to_style = df.copy()
+
+    # Định dạng hiển thị (giữ nguyên)
+    format_dict = {
+        'Current Price': '{:,.0f}',
+        '30D Avg': '{:,.0f}',
+        '52W High': '{:,.0f}',
+        '52W Low': '{:,.0f}',
+        '%Day': '{:.1%}',
+        '%Week': '{:.1%}',
+        '%Month': '{:.1%}',
+        '%Quarter': '{:.1%}',
+        '%YTD': '{:.1%}',
+    }
+    percent_cols = ['%Day', '%Week', '%Month', '%Quarter', '%YTD']
+
+    # Hàm style (giữ nguyên)
+    def style_percent_cell(val):
+        if pd.isna(val):
+            return 'font-weight: 300;'
+        
+        if val > 0:
+            bg_intensity = min(abs(val) * 10, 1.5)
+            return f'background-color: rgba(16, 185, 129, {bg_intensity}); font-weight: 300;'
+        elif val < 0:
+            bg_intensity = min(abs(val) * 10, 1.5)
+            return f'background-color: rgba(225, 29, 72, {bg_intensity}); font-weight: 300;'
+        else:
+            return 'background-color: #FFFFFF; font-weight: 300;'
+
+    styler = df_to_style.style.format(format_dict, na_rep='—')
+    
+    for col in percent_cols:
+        if col in df_to_style.columns:
+            styler = styler.applymap(style_percent_cell, subset=[col])
+    
+    text_columns = ['Commodities', 'Sector', 'Nation', 'Change type', 'Impact']
+    
+    table_styles = [
+        {
+            'selector': '',
+            'props': [
+                ('font-family', 'Manrope, sans-serif'),
+                ('color', '#000000'),
+                ('font-size', '12px'),
+            ]
+        },
+        # ĐÃ XÓA selector 'table' khỏi đây
+        {
+            'selector': 'td',
+            'props': [
+                ('padding', '8px'),
+                ('border-bottom', '1px solid #f0f0f0'),
+                ('font-weight', '400'),
+                ('text-align', 'right'),
+            ]
+        },
+        {
+            'selector': 'th',
+            'props': [
+                # 1. Các dòng mới để cố định header
+                ('position', 'sticky'),
+                ('top', '0'),
+                ('z-index', '1'), # Đảm bảo header luôn nằm trên các dòng khác
+                
+                # 2. Các style cũ (giữ nguyên và rất quan trọng)
+                ('font-weight', '600'),
+                ('padding', '10px'),
+                ('background-color', '#00816D'), # Màu nền là bắt buộc cho sticky header
+                ('color', '#f5f5f5'),
+                ('text-align', 'center'),
+            ]
+        },
+        {
+            'selector': 'tr:hover',
+            'props': [('background-color', '#f5f5f5')]
+        }
+    ]
+
+    for i, col_name in enumerate(df_to_style.columns):
+        if col_name in text_columns:
+            table_styles.append({
+                'selector': f'td:nth-child({i + 1})',
+                'props': [('text-align', 'left')]
+            })
+
+    styler = styler.set_table_styles(table_styles)
+
+    # --- THAY ĐỔI QUAN TRỌNG NHẤT TẠI ĐÂY ---
+    # Gắn style trực tiếp vào thẻ <table> để đảm bảo được áp dụng
+    styler = styler.set_table_attributes('style="width:100%; background-color:white; border-collapse: collapse;"')
+    
+    styler = styler.hide(axis="index")
+    
+    return styler
+
+def display_aggrid_table(df: pd.DataFrame):
+    """
+    Display a modern AG-Grid table with light theme and conditional formatting.
+    """
+    if df.empty:
+        st.warning("No data to display")
+        return
+    
+    # Prepare dataframe
+    df_display = df.copy()
+    
+    # Convert percent columns to display format (2.34 instead of 0.0234)
+    percent_cols = ["%Day", "%Week", "%Month", "%Quarter", "%YTD"]
+    for col in percent_cols:
+        if col in df_display.columns:
+            df_display[col] = df_display[col].apply(lambda x: round(x * 100, 2) if pd.notna(x) else x)
+
+    # JavaScript conditional color for percentage columns - light theme
+    color_cells = JsCode("""
+    function(params) {
+        if (params.value > 0) {
+            let alpha = Math.min(Math.abs(params.value) / 15, 1);
+            return {
+                'color': 'black',
+                'backgroundColor': `rgba(34,197,94,${alpha})`
+            };
+        } else if (params.value < 0) {
+            let alpha = Math.min(Math.abs(params.value) / 15, 1);
+            return {
+                'color': 'black',
+                'backgroundColor': `rgba(239,68,68,${alpha})`
+            };
+        }
+        return {
+            'color': 'black',
+            'backgroundColor': '#ffffff'
+        };
+    }
+    """)
+
+    # Custom CSS for light theme AG-Grid - matching original format
+    st.markdown("""
+        <style>
+        /* AG-Grid light theme styling */
+        .ag-root-wrapper, .ag-root-wrapper-body, .ag-center-cols-container,
+        .ag-header, .ag-row, .ag-cell {
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
+            border-color: #e5e7eb !important;
+        }
+
+        /* Header styling */
+        .ag-header {
+            background-color: #f8fafc !important;
+            font-weight: 600 !important;
+            color: #374151 !important;
+        }
+
+        /* Row striping */
+        .ag-row-even {
+            background-color: #ffffff !important;
+        }
+        .ag-row-odd {
+            background-color: #f9fafb !important;
+        }
+
+        /* Hover effects */
+        .ag-row:hover {
+            background-color: #f3f4f6 !important;
+        }
+
+        /* Input fields */
+        .ag-floating-filter-input, .ag-input-field-input {
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
+            border: 1px solid #d1d5db !important;
+        }
+
+        /* Icons */
+        .ag-icon, .ag-icon svg {
+            fill: #6b7280 !important;
+        }
+
+        /* Cell styling - compact and dense */
+        .ag-cell {
+            font-weight: 400;
+            border-bottom: 1px solid #f3f4f6 !important;
+            font-family: 'Manrope', sans-serif;
+            font-size: 13px !important;
+            padding: 6px 8px !important;
+        }
+
+        /* Header cells */
+        .ag-header-cell {
+            font-size: 12px !important;
+            padding: 8px !important;
+        }
+
+        /* Row height */
+        .ag-row {
+            height: 32px !important;
+        }
+
+        /* Sort indicators */
+        .ag-header-cell-sortable .ag-header-cell-menu-button {
+            color: #6b7280 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+    # Build AG-Grid options
+    gb = GridOptionsBuilder.from_dataframe(df_display)
+    gb.configure_default_column(resizable=True, filter=True, sortable=True)
+
+    # Apply conditional formatting for percentage columns
+    for col in percent_cols:
+        if col in df_display.columns:
+            gb.configure_column(col, cellStyle=color_cells, type=["numericColumn", "rightAligned"],
+                valueFormatter="x.toFixed(2)")
+
+    # Format Price column with thousand separators and 2 decimals
+    price_formatter = JsCode("function(params) { return params.value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }")
+    
+    price_columns = ["Price", "Current Price", "30D Avg", "52W High", "52W Low"]
+    for col in price_columns:
+        if col in df_display.columns:
+            gb.configure_column(col, type=["numericColumn", "rightAligned"],
+                valueFormatter=price_formatter)
+
+    # Configure specific columns with icons and formatting
+    column_mappings = {
+        "Nation": "🌍 Nation",
+        "Impact": "📈 Impact Stocks",
+        "Sector": "🏭 Sector",
+        "Commodities": "📦 Commodity"
+    }
+    
+    for col, header_name in column_mappings.items():
+        if col in df_display.columns:
+            gb.configure_column(col, headerName=header_name)
+    
+    # Hide Direct Impact and Inverse Impact columns by setting width to 0
+    if "Direct Impact" in df_display.columns:
+        gb.configure_column("Direct Impact", width=0, minWidth=0, maxWidth=0)
+    if "Inverse Impact" in df_display.columns:
+        gb.configure_column("Inverse Impact", width=0, minWidth=0, maxWidth=0)
+
+    # Configure grid options with scroll (no pagination)
+    gb.configure_pagination(enabled=False)
+    gb.configure_grid_options(domLayout='normal', rowHeight=32, headerHeight=40)
+    
+    # Set default column widths
+    gb.configure_default_column(width=120, minWidth=100)
+
+    # Display the grid with light theme and scroll
+    return AgGrid(
+        df_display,
+        gridOptions=gb.build(),
+        allow_unsafe_jscode=True,
+        fit_columns_on_grid_load=True,
+        height=400,
+        theme='streamlit',
+        update_mode='NO_UPDATE'
+    )
+
+
+def style_news_container():
+    """
+    CSS styling for news section containers
+    """
+    news_css = """
+    <style>
+    .news-section {
+        background-color: var(--bg-white);
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        margin-top: 2rem;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .news-header {
+        color: var(--primary-teal);
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .news-item {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .news-item:hover {
+        border-color: var(--primary-teal);
+        box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.1);
+    }
+    
+    .news-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+        line-height: 1.4;
+    }
+    
+    .news-meta {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+    }
+    
+    .news-ticker {
+        background-color: var(--primary-teal);
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .news-time {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .news-summary {
+        color: #4b5563;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        margin-top: 0.5rem;
+    }
+    
+    .news-stats {
+        background-color: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+    
+    .news-stats-text {
+        color: #0369a1;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .no-news {
+        text-align: center;
+        color: #6b7280;
+        font-style: italic;
+        padding: 2rem;
+    }
+    
+    .news-external-link {
+        color: var(--primary-teal);
+        text-decoration: none;
+        font-size: 0.8rem;
+        margin-left: auto;
+    }
+    
+    .news-external-link:hover {
+        text-decoration: underline;
+    }
+    </style>
+    """
+    st.markdown(news_css, unsafe_allow_html=True)
+
+
+def display_news_section(stock_news: dict, selected_stocks: list = None):
+    """
+    Display news section with expandable news items
+    
+    Args:
+        stock_news (dict): Dictionary of stock news data
+        selected_stocks (list): List of selected stock tickers to filter news
+    """
+    from modules.news_data import get_news_summary_stats, get_relative_time
+    
+    # Apply news styling
+    style_news_container()
+    
+    # Container for news section
+    st.markdown('<div class="news-section">', unsafe_allow_html=True)
+    
+    # Header
+    st.markdown('''
+        <div class="news-header">
+            📰 Tin Tức Impact Stocks
+        </div>
+    ''', unsafe_allow_html=True)
+    
+    if not stock_news:
+        st.markdown('<div class="no-news">Không có tin tức nào được tìm thấy cho các mã cổ phiếu được chọn.</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+    
+    # Display summary statistics
+    stats = get_news_summary_stats(stock_news)
+    if stats['total_news'] > 0:
+        st.markdown(f'''
+            <div class="news-stats">
+                <div class="news-stats-text">
+                    📊 Tìm thấy <strong>{stats['total_news']} tin tức</strong> từ <strong>{stats['total_stocks']} mã cổ phiếu</strong>
+                </div>
+            </div>
+        ''', unsafe_allow_html=True)
+    
+    # Filter news by selected stocks if provided
+    filtered_news = stock_news
+    if selected_stocks:
+        filtered_news = {ticker: news for ticker, news in stock_news.items() 
+                        if ticker in selected_stocks}
+    
+    # Display news items
+    news_displayed = 0
+    max_news_display = 10  # Limit total news items displayed
+    
+    for ticker, news_list in filtered_news.items():
+        if news_displayed >= max_news_display:
+            break
+            
+        for news_item in news_list:
+            if news_displayed >= max_news_display:
+                break
+                
+            # Create expandable news item
+            with st.expander(f"📄 {news_item['title']}", expanded=False):
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    # News metadata
+                    relative_time = get_relative_time(news_item['published_date'])
+                    st.markdown(f'''
+                        <div class="news-meta">
+                            <span class="news-ticker">{ticker}</span>
+                            <span class="news-time">🕐 {relative_time}</span>
+                        </div>
+                    ''', unsafe_allow_html=True)
+                    
+                    # News subtitle if available
+                    if news_item.get('subtitle') and news_item['subtitle'] != 'nan':
+                        st.markdown(f"**{news_item['subtitle']}**")
+                    
+                    # News content/summary
+                    content_to_show = news_item.get('content', news_item.get('summary', ''))
+                    if content_to_show and content_to_show != 'nan':
+                        st.write(content_to_show)
+                    else:
+                        st.write("*Không có nội dung chi tiết*")
+                
+                with col2:
+                    # External link if available
+                    if news_item.get('url') and news_item['url'] != 'nan':
+                        st.markdown(f'''
+                            <a href="{news_item['url']}" target="_blank" class="news-external-link">
+                                🔗 Xem chi tiết
+                            </a>
+                        ''', unsafe_allow_html=True)
+                    
+                    # News image if available
+                    if news_item.get('image_url') and news_item['image_url'] != 'nan':
+                        try:
+                            st.image(news_item['image_url'], width=150)
+                        except:
+                            pass  # Ignore image loading errors
+            
+            news_displayed += 1
+    
+    # Show more news indicator if there are more items
+    if news_displayed >= max_news_display:
+        remaining_news = sum(len(news_list) for news_list in filtered_news.values()) - news_displayed
+        if remaining_news > 0:
+            st.info(f"📝 Còn {remaining_news} tin tức khác. Chỉ hiển thị {max_news_display} tin mới nhất.")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def create_expandable_news_item(news_item: dict) -> str:
+    """
+    Create HTML for a single expandable news item
+    
+    Args:
+        news_item (dict): News item data
+        
+    Returns:
+        str: HTML string for the news item
+    """
+    from modules.news_data import get_relative_time
+    
+    relative_time = get_relative_time(news_item['published_date'])
+    ticker = news_item['ticker']
+    title = news_item['title']
+    summary = news_item.get('summary', '')
+    
+    # Truncate summary if too long
+    if len(summary) > 150:
+        summary = summary[:150] + '...'
+    
+    news_html = f'''
+    <div class="news-item" onclick="toggleNewsContent('{news_item.get('news_id', '')}')">
+        <div class="news-title">{title}</div>
+        <div class="news-meta">
+            <span class="news-ticker">{ticker}</span>
+            <span class="news-time">🕐 {relative_time}</span>
+        </div>
+        <div class="news-summary">{summary}</div>
+    </div>
+    '''
+    
+    return news_html
