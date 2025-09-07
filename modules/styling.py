@@ -110,7 +110,7 @@ def display_market_metrics(df: pd.DataFrame):
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 30px;
-            margin-bottom: 30px;
+            margin-bottom: 5px;
         }
         .metric-container {
             display: grid;
@@ -183,7 +183,7 @@ def display_market_metrics(df: pd.DataFrame):
                 font-size: 1.3rem; 
                 font-weight: 500;
                 text-align: left;
-                margin-bottom: 15px;
+                margin-bottom: 5px;
             '>
                 Key Market Metrics
             </h3>
@@ -194,7 +194,7 @@ def display_market_metrics(df: pd.DataFrame):
                 font-size: 1.3rem; 
                 font-weight: 500;
                 text-align: left;
-                margin-bottom: 15px;
+                margin-bottom: 5px;
             '>
                 Sector Metrics
             </h3>
