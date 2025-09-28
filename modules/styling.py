@@ -478,6 +478,9 @@ def display_aggrid_table(df: pd.DataFrame):
     gb = GridOptionsBuilder.from_dataframe(df_display)
     gb.configure_default_column(resizable=True, filter=True, sortable=True)
 
+    # Set default sort by Sector column
+    gb.configure_column("Sector", sort='asc')
+
     # Apply conditional formatting for percentage columns
     for col in percent_cols:
         if col in df_display.columns:

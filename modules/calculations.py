@@ -64,9 +64,17 @@ def calculate_price_changes(df_data, df_list, selected_date):
     # Defensive cleaning: ensure join keys are clean strings
     final_df['Commodities'] = final_df['Commodities'].astype(str).str.strip()
     list_subset['Commodities'] = list_subset['Commodities'].astype(str).str.strip()
-    
-    # Perform a robust left merge
-    final_df = pd.merge(final_df, list_subset, on='Commodities', how='left')
+
+    # Create case-insensitive join keys
+    final_df['_join_key'] = final_df['Commodities'].str.lower()
+    list_subset['_join_key'] = list_subset['Commodities'].str.lower()
+
+    # Perform a robust left merge using case-insensitive keys
+    final_df = pd.merge(final_df, list_subset[['_join_key', 'Sector', 'Nation', 'Impact', 'Direct Impact', 'Inverse Impact']],
+                       on='_join_key', how='left')
+
+    # Remove the temporary join key
+    final_df.drop('_join_key', axis=1, inplace=True)
 
     # --- Define and order final columns for display ---
     display_cols = [

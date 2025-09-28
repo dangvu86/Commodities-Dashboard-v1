@@ -46,7 +46,7 @@ SE Asia PS,Plastics,Global,,,
 Shanghai Container Index,Shipping,China,HAH,HAH,
 Silver,Metals,Global,,,
 Singapore Fuel 380,Energy,Singapore,"DPM, DCM, GAS",GAS,"DPM, DCM"
-Skim milk powder,Milk,Global,VNM,,VNM
+skim milk powder,Milk,Global,VNM,,VNM
 Sugar,Agriculture,Global,"QNS, LSS, SBT, SLS","QNS, LSS, SBT, SLS",
 Ure Brazil Future,Fertilizers,Global,,,
 Ure Middle East Future,Fertilizers,Global,,,
@@ -58,5 +58,5 @@ US Crack Spread,Energy,US,,,
 US Natural Gas,Energy,US,,,
 US Rig Count,Energy,US,,,
 Very Low Sulfur Fuel Oil,Shipping,Global,"HAH, VOS, VNA",,"HAH, VOS, VNA"
-Whole milk powder,Milk,Global,VNM,,VNM
+whole milk powder,Milk,Global,VNM,,VNM
 WTI,Energy,Global,,,
